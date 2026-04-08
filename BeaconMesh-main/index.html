@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>BeaconMesh - P2P Tactical Chat</title>
+    
+    <!-- Preconnect for performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- QR Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    
+    <!-- pako for compression -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+    
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'neon': '#00ff41',
+                        'neon-dim': '#00cc33',
+                        'neon-dark': '#009922',
+                        'cyber-blue': '#00d4ff',
+                        'cyber-purple': '#bf00ff',
+                        'tactical': '#050505',
+                        'tactical-light': '#0d0d0d',
+                        'tactical-medium': '#1a1a1a',
+                    },
+                    fontFamily: {
+                        'mono': ['JetBrains Mono', 'monospace'],
+                        'display': ['Orbitron', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-tactical min-h-screen font-mono text-gray-300 overflow-x-hidden">
+    
+    <!-- HTTPS Warning Banner -->
+    <div id="httpsWarning" class="hidden fixed top-0 left-0 right-0 bg-red-900/95 border-b border-red-500 px-4 py-3 z-50">
+        <div class="max-w-4xl mx-auto flex items-center gap-3">
+            <svg class="w-6 h-6 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+            <div class="flex-1">
+                <p class="text-red-200 font-bold text-sm">Security Warning: HTTPS Required</p>
+                <p class="text-red-300 text-xs">Camera access and WebRTC require a secure connection. Deploy to HTTPS or use localhost.</p>
+            </div>
+            <button onclick="dismissHttpsWarning()" class="text-red-400 hover:text-red-200">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Ambient Background Effects -->
+    <div class="fixed inset-0 pointer-events-none overflow-hidden">
+        <div class="absolute top-0 left-1/4 w-96 h-96 bg-neon/5 rounded-full blur-3xl"></div>
+        <div class="absolute bottom-0 right-1/4 w-96 h-96 bg-cyber-blue/5 rounded-full blur-3xl"></div>
+        <div class="grid-overlay"></div>
+    </div>
+
+    <!-- ==================== HOME SCREEN ==================== -->
+    <div id="homeScreen" class="relative min-h-screen flex flex-col items-center justify-center p-6">
+        
+        <!-- Logo Section -->
+        <div class="text-center mb-12 animate-fade-in">
+            <div class="relative inline-block mb-4">
+                <!-- Hexagon Logo -->
+                <div class="hexagon-container">
+                    <div class="hexagon">
+                        <svg class="w-16 h-16 text-neon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="absolute -top-1 -right-1 w-3 h-3 bg-neon rounded-full pulse-beacon"></div>
+            </div>
+            
+            <h1 class="font-display text-4xl md:text-6xl font-black tracking-wider mb-2">
+                <span class="text-neon glow-text">BEACON</span><span class="text-white">MESH</span>
+            </h1>
+            
+            <div class="flex items-center justify-center gap-3 text-xs tracking-[0.3em] text-gray-600 uppercase">
+                <span class="w-8 h-px bg-gradient-to-r from-transparent to-gray-700"></span>
+                <span>Serverless P2P Communication</span>
+                <span class="w-8 h-px bg-gradient-to-l from-transparent to-gray-700"></span>
+            </div>
+            
+            <!-- Status Pills -->
+            <div class="flex items-center justify-center gap-2 mt-6 flex-wrap">
+                <span class="status-pill">
+                    <span class="w-1.5 h-1.5 bg-neon rounded-full animate-pulse"></span>
+                    WebRTC
+                </span>
+                <span class="status-pill">
+                    <span class="w-1.5 h-1.5 bg-cyber-blue rounded-full animate-pulse"></span>
+                    Encrypted
+                </span>
+                <span class="status-pill">
+                    <span class="w-1.5 h-1.5 bg-cyber-purple rounded-full animate-pulse"></span>
+                    No Server
+                </span>
+            </div>
+        </div>
+        
+        <!-- Action Buttons -->
+        <div class="flex flex-col sm:flex-row gap-4 mb-12 animate-fade-in-delayed">
+            <button onclick="BeaconMesh.startHost()" class="action-btn action-btn-primary group">
+                <div class="action-btn-glow"></div>
+                <div class="action-btn-content">
+                    <div class="action-btn-icon">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
+                        </svg>
+                    </div>
+                    <div class="text-left">
+                        <span class="block font-bold tracking-wider text-lg">HOST BEACON</span>
+                        <span class="block text-xs text-gray-500 group-hover:text-tactical-light transition-colors">Create a new mesh network</span>
+                    </div>
+                </div>
+            </button>
+            
+            <button onclick="BeaconMesh.startJoin()" class="action-btn action-btn-secondary group">
+                <div class="action-btn-content">
+                    <div class="action-btn-icon">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
+                        </svg>
+                    </div>
+                    <div class="text-left">
+                        <span class="block font-bold tracking-wider text-lg">JOIN MESH</span>
+                        <span class="block text-xs text-gray-500 group-hover:text-neon-dim transition-colors">Connect to existing beacon</span>
+                    </div>
+                </div>
+            </button>
+        </div>
+        
+        <!-- Stats Panel -->
+        <div class="stats-panel animate-fade-in-delayed-2">
+            <div class="stat-item">
+                <div class="stat-value" id="homeConnectionCount">0</div>
+                <div class="stat-label">Active</div>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-item">
+                <div class="stat-value text-yellow-500" id="homeStatusIndicator">●</div>
+                <div class="stat-label">Status</div>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-item">
+                <div class="stat-value text-sm">P2P</div>
+                <div class="stat-label">Mode</div>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-item">
+                <div class="stat-value text-sm" id="protocolVersion">v2.0</div>
+                <div class="stat-label">Protocol</div>
+            </div>
+        </div>
+
+        <!-- How It Works -->
+        <div class="mt-12 max-w-2xl text-center animate-fade-in-delayed-2">
+            <button onclick="toggleHowItWorks()" class="text-gray-600 hover:text-neon transition-colors text-sm flex items-center gap-2 mx-auto">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                How does it work?
+            </button>
+            <div id="howItWorksPanel" class="hidden mt-4 p-4 bg-tactical-light/50 border border-gray-800 rounded-lg text-left text-xs text-gray-500">
+                <ol class="space-y-2">
+                    <li class="flex gap-2"><span class="text-neon">1.</span> Host creates a beacon and displays a QR code</li>
+                    <li class="flex gap-2"><span class="text-neon">2.</span> Joiner scans the QR code with their camera</li>
+                    <li class="flex gap-2"><span class="text-neon">3.</span> Joiner's device shows an answer QR code</li>
+                    <li class="flex gap-2"><span class="text-neon">4.</span> Host scans the answer to complete connection</li>
+                    <li class="flex gap-2"><span class="text-neon">5. </span> Direct encrypted P2P chat begins!</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== HOST SCREEN ==================== -->
+    <div id="hostScreen" class="relative min-h-screen p-4 hidden">
+        <div class="max-w-2xl mx-auto">
+            
+            <!-- Header -->
+            <header class="flex items-center justify-between mb-6 pt-2">
+                <button onclick="BeaconMesh.goHome()" class="nav-back-btn">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                    </svg>
+                    <span>ABORT</span>
+                </button>
+                <h2 class="font-display text-xl font-bold text-neon glow-text">HOST BEACON</h2>
+                <div class="w-24"></div>
+            </header>
+            
+            <!-- Progress Steps -->
+            <div class="step-container mb-8">
+                <div class="step active" id="hostStep1">
+                    <div class="step-dot">1</div>
+                    <span class="step-label">Generate</span>
+                </div>
+                <div class="step-line" id="hostLine1"></div>
+                <div class="step" id="hostStep2">
+                    <div class="step-dot">2</div>
+                    <span class="step-label">Scan Answer</span>
+                </div>
+                <div class="step-line" id="hostLine2"></div>
+                <div class="step" id="hostStep3">
+                    <div class="step-dot">3</div>
+                    <span class="step-label">Connected</span>
+                </div>
+            </div>
+
+            <!-- QR Display Section -->
+            <div id="hostQRSection" class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <svg class="w-5 h-5 text-neon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+                        </svg>
+                        Your Beacon Signal
+                    </h3>
+                    <p class="card-subtitle">Have your peer scan this QR code to connect</p>
+                </div>
+                
+                <!-- Loading State -->
+                <div id="hostQRLoading" class="qr-loading">
+                    <div class="qr-loading-spinner"></div>
+                    <p class="qr-loading-text" id="hostLoadingStatus">Initializing beacon...</p>
+                    <div class="qr-loading-progress">
+                        <div class="qr-loading-progress-bar" id="hostProgressBar"></div>
+                    </div>
+                    <p class="qr-loading-substatus" id="hostSubStatus">Gathering network candidates</p>
+                </div>
+                
+                <!-- QR Code Display -->
+                <div id="hostQRContainer" class="hidden">
+                    <div class="qr-wrapper">
+                        <div id="hostQRCode" class="qr-code"></div>
+                        <div class="qr-corner qr-corner-tl"></div>
+                        <div class="qr-corner qr-corner-tr"></div>
+                        <div class="qr-corner qr-corner-bl"></div>
+                        <div class="qr-corner qr-corner-br"></div>
+                    </div>
+                    
+                    <!-- QR Stats -->
+                    <div class="qr-stats" id="hostQRStats">
+                        <span class="qr-stat">
+                            <span class="text-gray-500">Size:</span>
+                            <span id="hostQRSize">0</span> chars
+                        </span>
+                        <span class="qr-stat">
+                            <span class="text-gray-500">Candidates:</span>
+                            <span id="hostCandidateCount">0</span>
+                        </span>
+                    </div>
+                    
+                    <!-- Instructions -->
+                    <div class="instruction-box instruction-box-host">
+                        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <p>Keep this screen open. After your peer scans this code, they will show you their answer code to scan below.</p>
+                    </div>
+                    
+                    <!-- Copy Button -->
+                    <div class="flex gap-2 justify-center">
+                        <button onclick="BeaconMesh.copyHostSDP()" class="btn-secondary">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                            </svg>
+                            Copy SDP
+                        </button>
+                        <button onclick="BeaconMesh.regenerateHostOffer()" class="btn-secondary">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                            </svg>
+                            Regenerate
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Force Generate Button -->
+                <div id="hostForceGenerate" class="hidden mt-4">
+                    <button onclick="BeaconMesh.forceGenerateHostQR()" class="btn-warning w-full">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                        Force Generate QR (Use current candidates)
+                    </button>
+                    <p class="text-xs text-yellow-600 mt-2 text-center">ICE gathering is taking longer than expected. You can force generate with available candidates.</p>
+                </div>
+            </div>
+
+            <!-- Scanner Section -->
+            <div id="hostScanSection" class="hidden card mt-6">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <svg class="w-5 h-5 text-cyber-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        </svg>
+                        Scan Peer's Answer
+                    </h3>
+                    <p class="card-subtitle">Point your camera at your peer's answer QR code</p>
+                </div>
+                
+                <div class="scanner-container">
+                    <div id="hostScanner" class="scanner-viewport"></div>
+                    <div class="scanner-overlay">
+                        <div class="scanner-frame"></div>
+                    </div>
+                </div>
+                
+                <!-- Manual Input -->
+                <div class="manual-input-section">
+                    <p class="text-xs text-gray-600 mb-3">Or paste the answer SDP manually:</p>
+                    <div class="flex gap-2">
+                        <input type="text" id="hostAnswerInput" placeholder="Paste compressed answer SDP..." class="input-field flex-1">
+                        <button onclick="BeaconMesh.processHostAnswer()" class="btn-primary">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            Connect
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== JOIN SCREEN ==================== -->
+    <div id="joinScreen" class="relative min-h-screen p-4 hidden">
+        <div class="max-w-2xl mx-auto">
+            
+            <!-- Header -->
+            <header class="flex items-center justify-between mb-6 pt-2">
+                <button onclick="BeaconMesh.goHome()" class="nav-back-btn">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                    </svg>
+                    <span>ABORT</span>
+                </button>
+                <h2 class="font-display text-xl font-bold text-cyber-blue" style="text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);">JOIN MESH</h2>
+                <div class="w-24"></div>
+            </header>
+            
+            <!-- Progress Steps -->
+            <div class="step-container mb-8">
+                <div class="step active" id="joinStep1">
+                    <div class="step-dot step-dot-blue">1</div>
+                    <span class="step-label">Scan Beacon</span>
+                </div>
+                <div class="step-line step-line-blue" id="joinLine1"></div>
+                <div class="step" id="joinStep2">
+                    <div class="step-dot step-dot-blue">2</div>
+                    <span class="step-label">Show Answer</span>
+                </div>
+                <div class="step-line step-line-blue" id="joinLine2"></div>
+                <div class="step" id="joinStep3">
+                    <div class="step-dot step-dot-blue">3</div>
+                    <span class="step-label">Connected</span>
+                </div>
+            </div>
+
+            <!-- Scanner Section -->
+            <div id="joinScanSection" class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <svg class="w-5 h-5 text-cyber-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        </svg>
+                        Scan Host's Beacon
+                    </h3>
+                    <p class="card-subtitle">Point your camera at the host's QR code</p>
+                </div>
+                
+                <div class="scanner-container">
+                    <div id="joinScanner" class="scanner-viewport"></div>
+                    <div class="scanner-overlay">
+                        <div class="scanner-frame scanner-frame-blue"></div>
+                    </div>
+                </div>
+                
+                <!-- Manual Input -->
+                <div class="manual-input-section">
+                    <p class="text-xs text-gray-600 mb-3">Or paste the offer SDP manually:</p>
+                    <div class="flex gap-2">
+                        <input type="text" id="joinOfferInput" placeholder="Paste compressed offer SDP..." class="input-field flex-1">
+                        <button onclick="BeaconMesh.processJoinOffer()" class="btn-primary btn-primary-blue">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            Process
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Answer QR Section -->
+            <div id="joinQRSection" class="hidden card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <svg class="w-5 h-5 text-cyber-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+                        </svg>
+                        Your Answer Signal
+                    </h3>
+                    <p class="card-subtitle">Show this QR code to the host to complete the connection</p>
+                </div>
+                
+                <!-- Loading State -->
+                <div id="joinQRLoading" class="qr-loading">
+                    <div class="qr-loading-spinner qr-loading-spinner-blue"></div>
+                    <p class="qr-loading-text" id="joinLoadingStatus">Processing offer...</p>
+                    <div class="qr-loading-progress">
+                        <div class="qr-loading-progress-bar qr-loading-progress-bar-blue" id="joinProgressBar"></div>
+                    </div>
+                    <p class="qr-loading-substatus" id="joinSubStatus">Creating answer</p>
+                </div>
+                
+                <!-- QR Code Display -->
+                <div id="joinQRContainer" class="hidden">
+                    <div class="qr-wrapper qr-wrapper-blue">
+                        <div id="joinQRCode" class="qr-code"></div>
+                        <div class="qr-corner qr-corner-blue qr-corner-tl"></div>
+                        <div class="qr-corner qr-corner-blue qr-corner-tr"></div>
+                        <div class="qr-corner qr-corner-blue qr-corner-bl"></div>
+                        <div class="qr-corner qr-corner-blue qr-corner-br"></div>
+                    </div>
+                    
+                    <!-- QR Stats -->
+                    <div class="qr-stats" id="joinQRStats">
+                        <span class="qr-stat">
+                            <span class="text-gray-500">Size:</span>
+                            <span id="joinQRSize">0</span> chars
+                        </span>
+                        <span class="qr-stat">
+                            <span class="text-gray-500">Candidates:</span>
+                            <span id="joinCandidateCount">0</span>
+                        </span>
+                    </div>
+                    
+                    <!-- Instructions -->
+                    <div class="instruction-box instruction-box-join">
+                        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <p>Show this code to the host. Once they scan it, the connection will be established automatically.</p>
+                    </div>
+                    
+                    <!-- Copy Button -->
+                    <div class="flex gap-2 justify-center">
+                        <button onclick="BeaconMesh.copyJoinSDP()" class="btn-secondary">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                            </svg>
+                            Copy SDP
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Force Generate Button -->
+                <div id="joinForceGenerate" class="hidden mt-4">
+                    <button onclick="BeaconMesh.forceGenerateJoinQR()" class="btn-warning w-full">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                        Force Generate QR (Use current candidates)
+                    </button>
+                    <p class="text-xs text-yellow-600 mt-2 text-center">ICE gathering is taking longer than expected.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== CHAT SCREEN ==================== -->
+    <div id="chatScreen" class="min-h-screen flex flex-col hidden">
+        
+        <!-- Chat Header -->
+        <header class="chat-header">
+            <div class="max-w-4xl mx-auto flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="relative">
+                        <div class="w-3 h-3 bg-neon rounded-full"></div>
+                        <div class="absolute inset-0 w-3 h-3 bg-neon rounded-full animate-ping"></div>
+                    </div>
+                    <div>
+                        <h2 class="font-display font-bold text-neon glow-text text-lg">BEACONMESH</h2>
+                        <p class="text-xs text-gray-500" id="connectionDuration">Connected</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-4">
+                    <div class="hidden sm:flex items-center gap-2 px-3 py-1 bg-tactical rounded border border-gray-800">
+                        <div class="w-2 h-2 bg-neon rounded-full"></div>
+                        <span class="text-xs text-gray-400" id="connectionType">P2P Direct</span>
+                    </div>
+                    <button onclick="BeaconMesh.showConnectionInfo()" class="p-2 text-gray-500 hover:text-neon transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </button>
+                    <button onclick="BeaconMesh.disconnect()" class="btn-danger">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                        </svg>
+                        <span class="hidden sm:inline">Disconnect</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Chat Messages -->
+        <div id="chatMessages" class="flex-1 overflow-y-auto p-4 space-y-3 max-w-4xl mx-auto w-full">
+            <!-- System Message -->
+            <div class="flex justify-center">
+                <div class="system-message">
+                    <svg class="w-4 h-4 text-neon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                    </svg>
+                    <div>
+                        <p class="font-medium text-gray-300">End-to-end encrypted connection established</p>
+                        <p class="text-gray-600 text-xs mt-1">Messages are transmitted directly between peers. No server involved.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Message Input -->
+        <div class="chat-input-container">
+            <div class="max-w-4xl mx-auto flex gap-3">
+                <div class="relative flex-1">
+                    <input type="text" id="messageInput" 
+                        placeholder="Type your message..." 
+                        class="chat-input"
+                        onkeypress="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); BeaconMesh.sendMessage(); }"
+                        autocomplete="off">
+                    <div class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-600" id="charCount">0/1000</div>
+                </div>
+                <button onclick="BeaconMesh.sendMessage()" class="chat-send-btn" id="sendButton">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                    </svg>
+                    <span class="hidden sm:inline">Send</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODALS ==================== -->
+    
+    <!-- Permission Modal -->
+    <div id="permissionModal" class="modal hidden">
+        <div class="modal-backdrop" onclick="BeaconMesh.hidePermissionModal()"></div>
+        <div class="modal-content">
+            <div class="modal-icon modal-icon-warning">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+            </div>
+            <h3 class="modal-title">Camera Access Required</h3>
+            <p class="modal-text">BeaconMesh needs camera access to scan QR codes. This is required for establishing the peer-to-peer connection.</p>
+            <div class="modal-actions">
+                <button onclick="BeaconMesh.hidePermissionModal()" class="btn-secondary">Cancel</button>
+                <button onclick="BeaconMesh.requestCameraPermission()" class="btn-primary">Grant Access</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Connection Info Modal -->
+    <div id="connectionInfoModal" class="modal hidden">
+        <div class="modal-backdrop" onclick="BeaconMesh.hideConnectionInfo()"></div>
+        <div class="modal-content modal-content-lg">
+            <div class="modal-icon modal-icon-info">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                </svg>
+            </div>
+            <h3 class="modal-title">Connection Details</h3>
+            <div class="connection-info-grid" id="connectionInfoContent">
+                <!-- Populated by JS -->
+            </div>
+            <div class="modal-actions">
+                <button onclick="BeaconMesh.hideConnectionInfo()" class="btn-primary">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== TOASTS ==================== -->
+    <div id="toastContainer" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
+
+    <!-- Main Application Script -->
+    <script src="app.js"></script>
+</body>
+</html>
